@@ -63,6 +63,21 @@ func main() {
 	todo = uint64(width)
 	done = 0
 
+	type cell struct {
+		x, y   int
+		colval color.Color
+	}
+
+	setCell := make(chan cell, int(height))
+
+	// Start Accumulator
+	go func() {
+		for c := range setCell {
+			img.Set(c.x, c.y, c.colval)
+		}
+	}()
+
+	// Start Calculators
 	for x := 0; x < int(width); x++ {
 		go func(x int) {
 			for y := 0; y < int(height); y++ {
@@ -76,7 +91,7 @@ func main() {
 					uint8(int(csb) * calcval % 255),
 					255,
 				}
-				img.Set(x, y, colval)
+				setCell <- cell{x, y, colval}
 			}
 			atomic.AddUint64(&done, 1)
 		}(x)
@@ -87,6 +102,7 @@ func main() {
 			fmt.Printf("\033[2Jcalculated %v%v of Mandelbrot set\n", int(100/float64(todo)*float64(completed)), "%")
 			time.Sleep(time.Millisecond * 10)
 		} else {
+			close(setCell)
 			break
 		}
 	}
